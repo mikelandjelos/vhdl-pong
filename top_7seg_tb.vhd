@@ -83,7 +83,7 @@ BEGIN
         REPORT "ERROR: Anode should be 1110 for digit 0"
             SEVERITY error;
 
-        REPORT "Digit 0 PASSED";
+        REPORT "Digit " & INTEGER'image(0) & " PASSED - pattern: " & to_string(seg);
 
         -- Now check digits 1..9, each after one full digit period
         FOR i IN 1 TO 9 LOOP
@@ -99,7 +99,7 @@ BEGIN
             REPORT "ERROR: Anode should be 1110"
                 SEVERITY error;
 
-            REPORT "Digit " & INTEGER'image(i) & " PASSED";
+            REPORT "Digit " & INTEGER'image(i) & " PASSED - pattern: " & to_string(seg);
         END LOOP;
 
         -- Check wrap-around back to 0 after another digit period
