@@ -78,10 +78,13 @@ BEGIN
                 p1_score <= p1_score + 1;
             END IF;
 
-            IF p2_score = 99 THEN
-                p2_score <= 0;
-            ELSE
-                p2_score <= p2_score + 1;
+            -- Update p2 slower: every 10 ticks, increment by 1
+            IF p1_score MOD 10 = 9 THEN
+                IF p2_score = 99 THEN
+                    p2_score <= 0;
+                ELSE
+                    p2_score <= p2_score + 1;
+                END IF;
             END IF;
         END IF;
     END PROCESS;

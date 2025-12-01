@@ -1,4 +1,8 @@
 .vscode/*
 instructions/*
 work-obj/*
+
 **.txt
+**.ppm
+**.png
+**.gif
