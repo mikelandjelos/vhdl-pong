@@ -7,7 +7,7 @@ mkdir -p "$(dirname "$CTRL_PATH")"
 echo 0 > "$CTRL_PATH"
 
 tick_ms=${TICK_MS:-5}    # update period (ms)
-ttl_ms=${TTL_MS:-5}      # how long a key stays active without repeats (ms)
+ttl_ms=${TTL_MS:-5}    # how long a key stays active without repeats (ms)
 
 ttl_ticks=$(( ttl_ms / tick_ms ))
 (( ttl_ticks < 1 )) && ttl_ticks=1
@@ -20,7 +20,7 @@ if [ ! -t 0 ]; then
 fi
 
 stty -echo -icanon time 0 min 0
-trap 'stty sane; echo 0 > "$CTRL_PATH"; exit' INT TERM EXIT
+trap 'stty sane; exit' INT TERM EXIT
 
 echo "Controls: w/s for P1, i/k for P2, q to quit"
 echo "Tip: hold keys; release stops after ~${TTL_MS}ms."

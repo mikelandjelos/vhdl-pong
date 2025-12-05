@@ -6,3 +6,5 @@ work-obj/*
 **.ppm
 **.png
 **.gif
+
+!frames/out.gif

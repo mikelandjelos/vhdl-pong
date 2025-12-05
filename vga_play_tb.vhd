@@ -13,7 +13,7 @@ ENTITY vga_play_tb IS
         WIDTH      : INTEGER := 640;
         HEIGHT     : INTEGER := 480;
         N_FRAMES   : INTEGER := 0;         -- 0 => run until quit
-        FRAMERATE  : INTEGER := 90;        -- higher FPS for snappier input
+        FRAMERATE  : INTEGER := 120;       -- higher FPS for snappier input
         OUT_PATH   : STRING  := "frames/stream.rgb";
         CTRL_PATH  : STRING  := "frames/controls.txt"
     );
@@ -40,23 +40,29 @@ ARCHITECTURE tb OF vga_play_tb IS
     -- Safe control reader: keeps previous mask if file absent/empty
     PROCEDURE read_control(CONSTANT path : IN STRING; VARIABLE mask : INOUT INTEGER) IS
         FILE ctrl : text;
-        VARIABLE st   : FILE_OPEN_STATUS;
-        VARIABLE L    : line;
-        VARIABLE val  : INTEGER;
-        VARIABLE found: BOOLEAN := FALSE;
+        VARIABLE st         : FILE_OPEN_STATUS;
+        VARIABLE L          : line;
+        VARIABLE val        : INTEGER;
+        VARIABLE good       : BOOLEAN;
+        VARIABLE last_is_neg: BOOLEAN := FALSE;
     BEGIN
         FILE_OPEN(st, ctrl, path, READ_MODE);
         IF st = OPEN_OK THEN
             WHILE NOT ENDFILE(ctrl) LOOP
                 READLINE(ctrl, L);
-                -- Assume writer prints a single integer per line
-                READ(L, val);
-                mask := val;
-                found := TRUE;
+                READ(L, val, good);
+                IF good THEN
+                    last_is_neg := (val < 0);
+                    IF NOT last_is_neg THEN
+                        mask := val; -- keep last non-negative
+                    END IF;
+                END IF;
             END LOOP;
             FILE_CLOSE(ctrl);
         END IF;
-        -- If not found, mask remains unchanged (sticky)
+        IF last_is_neg THEN
+            mask := -1; -- quit only if the last parsed value is negative
+        END IF;
     END PROCEDURE;
 
     FUNCTION bit_set(n : INTEGER; k : INTEGER) RETURN BOOLEAN IS
@@ -84,10 +90,10 @@ BEGIN
             IF mask < 0 THEN EXIT; END IF;
 
             -- apply controls (instant directions: up = negative Y, down = positive Y)
-            IF bit_set(mask, 0) AND NOT bit_set(mask, 1) THEN p1y := p1y - 12; END IF; -- P1 up
-            IF bit_set(mask, 1) AND NOT bit_set(mask, 0) THEN p1y := p1y + 12; END IF; -- P1 down
-            IF bit_set(mask, 2) AND NOT bit_set(mask, 3) THEN p2y := p2y - 12; END IF; -- P2 up
-            IF bit_set(mask, 3) AND NOT bit_set(mask, 2) THEN p2y := p2y + 12; END IF; -- P2 down
+            IF bit_set(mask, 0) AND NOT bit_set(mask, 1) THEN p1y := p1y - 16; END IF; -- P1 up
+            IF bit_set(mask, 1) AND NOT bit_set(mask, 0) THEN p1y := p1y + 16; END IF; -- P1 down
+            IF bit_set(mask, 2) AND NOT bit_set(mask, 3) THEN p2y := p2y - 16; END IF; -- P2 up
+            IF bit_set(mask, 3) AND NOT bit_set(mask, 2) THEN p2y := p2y + 16; END IF; -- P2 down
             IF p1y < 0 THEN p1y := 0; ELSIF p1y > HEIGHT-PAD_H THEN p1y := HEIGHT-PAD_H; END IF;
             IF p2y < 0 THEN p2y := 0; ELSIF p2y > HEIGHT-PAD_H THEN p2y := HEIGHT-PAD_H; END IF;
 
