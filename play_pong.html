@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pong — Playable</title>
+  <style>
+    html,body { margin:0; height:100%; background:#111; color:#ddd; font-family:system-ui, sans-serif; }
+    .wrap { display:flex; flex-direction:column; align-items:center; gap:8px; padding:12px; }
+    canvas { background:#000; box-shadow:0 0 24px #000; image-rendering:pixelated; }
+    .hud { display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    kbd { background:#222; border:1px solid #444; border-radius:4px; padding:2px 6px; }
+    .score { font-size:22px; letter-spacing:2px; }
+    .btn { cursor:pointer; color:#fff; background:#333; border:1px solid #555; padding:6px 10px; border-radius:6px; }
+    .btn:hover { background:#3a3a3a; }
+  </style>
+  <script>
+  // Simple, standalone Pong (no deps). Keys: W/S (Left), ↑/↓ (Right), P pause, R reset.
+  window.addEventListener('DOMContentLoaded', () => {
+    const cvs = document.getElementById('c');
+    const ctx = cvs.getContext('2d');
+
+    // Virtual resolution independent of canvas pixel size
+    const W = 640, H = 480;
+    function fitCanvas() {
+      const scale = Math.min((window.innerWidth-24)/W, (window.innerHeight-140)/H, 2);
+      cvs.width = W * scale | 0; cvs.height = H * scale | 0;
+      ctx.setTransform(cvs.width/W, 0, 0, cvs.height/H, 0, 0);
+    }
+    fitCanvas();
+    window.addEventListener('resize', fitCanvas);
+
+    // Game objects
+    const PAD_W = 8, PAD_H = 60, BALL = 8;
+    const P1_X = 16, P2_X = W - 16 - PAD_W;
+    let p1y = (H-PAD_H)/2, p2y = (H-PAD_H)/2;
+    let bx = W/2, by = H/2, bdx = 200, bdy = 160; // px/sec
+    let s1 = 0, s2 = 0;
+    let upL=false, dnL=false, upR=false, dnR=false; // inputs
+    let paused = false;
+
+    const scoreEl = document.getElementById('score');
+    function setScore() { scoreEl.textContent = `${s1.toString().padStart(2,'0')} : ${s2.toString().padStart(2,'0')}`; }
+    setScore();
+
+    function resetBall(towardsRight = Math.random()<0.5) {
+      bx = W/2; by = H/2;
+      const speed = 240; // px/sec
+      const angle = (Math.random()*0.6 - 0.3); // slight vertical
+      bdx = (towardsRight? 1 : -1) * speed * Math.cos(angle);
+      bdy = speed * Math.sin(angle);
+    }
+
+    function clamp(v,min,max){ return v<min?min:v>max?max:v; }
+
+    function step(dt){
+      const padSpeed = 320; // px/sec
+      if (upL && !dnL) p1y -= padSpeed*dt; else if (dnL && !upL) p1y += padSpeed*dt;
+      if (upR && !dnR) p2y -= padSpeed*dt; else if (dnR && !upR) p2y += padSpeed*dt;
+      p1y = clamp(p1y, 0, H-PAD_H); p2y = clamp(p2y, 0, H-PAD_H);
+
+      bx += bdx*dt; by += bdy*dt;
+      if (by <= 0){ by = 0; bdy = Math.abs(bdy); }
+      if (by >= H-BALL){ by = H-BALL; bdy = -Math.abs(bdy); }
+
+      // P1 paddle
+      if (bx <= P1_X+PAD_W && bx+BALL >= P1_X && by+BALL > p1y && by < p1y+PAD_H){
+        bx = P1_X+PAD_W; bdx = Math.abs(bdx);
+        // add a bit of english based on hit point
+        const rel = (by + BALL/2) - (p1y + PAD_H/2);
+        bdy += rel * 4; // tweak
+      }
+      // P2 paddle
+      if (bx+BALL >= P2_X && bx <= P2_X+PAD_W && by+BALL > p2y && by < p2y+PAD_H){
+        bx = P2_X-BALL; bdx = -Math.abs(bdx);
+        const rel = (by + BALL/2) - (p2y + PAD_H/2);
+        bdy += rel * 4;
+      }
+
+      // Scoring
+      if (bx < -BALL){ s2 = (s2+1)%100; setScore(); resetBall(true); }
+      if (bx > W+BALL){ s1 = (s1+1)%100; setScore(); resetBall(false); }
+    }
+
+    function draw(){
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+      // center line
+      ctx.strokeStyle = '#222'; ctx.setLineDash([6,12]); ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke(); ctx.setLineDash([]);
+      // paddles
+      ctx.fillStyle = '#0f0'; ctx.fillRect(P1_X, p1y, PAD_W, PAD_H); ctx.fillRect(P2_X, p2y, PAD_W, PAD_H);
+      // ball
+      ctx.fillStyle = '#fff'; ctx.fillRect(bx, by, BALL, BALL);
+    }
+
+    let last = performance.now();
+    function loop(t){
+      const dt = Math.min(1/30, (t-last)/1000); last = t;
+      if (!paused) step(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    function key(e, down){
+      if (e.repeat) return;
+      if (e.key === 'w' || e.key === 'W') upL = down;
+      if (e.key === 's' || e.key === 'S') dnL = down;
+      if (e.key === 'ArrowUp') upR = down;
+      if (e.key === 'ArrowDown') dnR = down;
+      if (down && (e.key === 'p' || e.key === 'P')) paused = !paused;
+      if (down && (e.key === 'r' || e.key === 'R')) { s1=0; s2=0; setScore(); p1y=p2y=(H-PAD_H)/2; resetBall(); }
+    }
+    window.addEventListener('keydown', e => key(e,true));
+    window.addEventListener('keyup',   e => key(e,false));
+
+    document.getElementById('btnPause').onclick = () => { paused = !paused; };
+    document.getElementById('btnReset').onclick = () => { s1=0; s2=0; setScore(); p1y=p2y=(H-PAD_H)/2; resetBall(); };
+
+    resetBall();
+  });
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hud">
+      <span class="score" id="score">00 : 00</span>
+      <button class="btn" id="btnPause">Pause</button>
+      <button class="btn" id="btnReset">Reset</button>
+    </div>
+    <canvas id="c" width="640" height="480" aria-label="Pong"></canvas>
+    <div class="hud">
+      <div>
+        P1: <kbd>W</kbd>/<kbd>S</kbd>
+      </div>
+      <div>
+        P2: <kbd>↑</kbd>/<kbd>↓</kbd>
+      </div>
+      <div>
+        <kbd>P</kbd> pause, <kbd>R</kbd> reset
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

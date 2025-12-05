@@ -7,6 +7,63 @@ mkdir -p frames
 rm -f frames/frame_*.ppm frames/out.gif frames/stream.rgb frames/live.mp4 2>/dev/null || true
 
 echo "========================================="
+echo "Preparing environment..."
+echo "========================================="
+
+# Minimal playable mode (ffplay streaming) when PLAY=1
+if [ "${PLAY:-0}" = "1" ]; then
+  echo "PLAY=1 → minimal playable build"
+  ghdl -a --workdir=work-obj --work=lib vga_play_tb.vhd || exit 1
+  ghdl -e --workdir=work-obj --work=lib vga_play_tb || exit 1
+
+  PLAY_WIDTH=${PLAY_WIDTH:-640}
+  PLAY_HEIGHT=${PLAY_HEIGHT:-480}
+  PLAY_FPS=${PLAY_FPS:-90}
+  TOTAL_PLAY_FRAMES=${TOTAL_PLAY_FRAMES:-0}
+  STREAM_PATH=frames/stream.rgb
+  CTRL_PATH=frames/controls.txt
+
+  rm -f "$STREAM_PATH" "$CTRL_PATH" 2>/dev/null || true
+  mkfifo "$STREAM_PATH" || { echo "mkfifo failed"; exit 1; }
+  echo 0 > "$CTRL_PATH"
+
+  if command -v ffplay >/dev/null 2>&1; then
+    # Stream FIFO via cat → ffplay for minimal latency
+    cat "$STREAM_PATH" | \
+      ffplay -autoexit -hide_banner -loglevel warning \
+             -f rawvideo -pixel_format rgb24 \
+             -video_size ${PLAY_WIDTH}x${PLAY_HEIGHT} -framerate ${PLAY_FPS} \
+             -i pipe:0 &
+    PLAYER_PID=$!
+  elif command -v ffmpeg >/dev/null 2>&1; then
+    echo "ffplay not found; recording to frames/live.mp4"
+    cat "$STREAM_PATH" | \
+      ffmpeg -y -hide_banner -loglevel error \
+             -f rawvideo -pixel_format rgb24 \
+             -video_size ${PLAY_WIDTH}x${PLAY_HEIGHT} -framerate ${PLAY_FPS} \
+             -i pipe:0 -pix_fmt yuv420p frames/live.mp4 &
+    PLAYER_PID=$!
+  else
+    echo "Neither ffplay nor ffmpeg found; cannot display/record."; exit 1
+  fi
+
+  echo "Controls: run ./play_controls.sh in another terminal (W/S for P1, I/K for P2, Q to quit)."
+
+  echo "Starting vga_play_tb ..."
+  ghdl -r --workdir=work-obj --work=lib vga_play_tb \
+       -gWIDTH=$PLAY_WIDTH -gHEIGHT=$PLAY_HEIGHT \
+       -gN_FRAMES=$TOTAL_PLAY_FRAMES -gFRAMERATE=$PLAY_FPS \
+       -gOUT_PATH="$STREAM_PATH" -gCTRL_PATH="$CTRL_PATH" || true
+
+  if [ -n "$PLAYER_PID" ]; then kill $PLAYER_PID 2>/dev/null || true; fi
+  rm -f "$STREAM_PATH" "$CTRL_PATH" 2>/dev/null || true
+  echo "========================================="
+  echo "Playable session ended."
+  echo "========================================="
+  exit 0
+fi
+
+echo "========================================="
 echo "Compiling design files..."
 echo "========================================="
 
