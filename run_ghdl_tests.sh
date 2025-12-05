@@ -19,6 +19,8 @@ ghdl -a --workdir=work-obj --work=lib score_7seg.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib top_score7seg.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib score_7seg_tb.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib top_score7seg_tb.vhd || exit 1
+ghdl -a --workdir=work-obj --work=lib input_controller.vhd || exit 1
+ghdl -a --workdir=work-obj --work=lib input_controller_tb.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib vga_controller.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib vga_tb.vhd || exit 1
 ghdl -a --workdir=work-obj --work=lib top_vga.vhd || exit 1
@@ -53,6 +55,13 @@ echo "Running top_score7seg_tb..."
 echo "========================================="
 ghdl -e --workdir=work-obj --work=lib top_score7seg_tb || exit 1
 ghdl -r --workdir=work-obj --work=lib top_score7seg_tb --assert-level=error || exit 1
+
+echo ""
+echo "========================================="
+echo "Running input_controller_tb..."
+echo "========================================="
+ghdl -e --workdir=work-obj --work=lib input_controller_tb || exit 1
+ghdl -r --workdir=work-obj --work=lib input_controller_tb --assert-level=error || exit 1
 
 echo ""
 echo "========================================="
